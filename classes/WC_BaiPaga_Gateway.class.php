@@ -70,13 +70,13 @@ class WC_BaiPaga_Gateway extends WC_Payment_Gateway {
 	 * Function Plugin constructor
 	 */
 	public function __construct() {
-		$this->id = 'pix_pagseguro_albreis';
+		$this->id = 'bai_paga';
 		$this->has_fields         = true;
 		$this->method_title       = __( 'Bai Paga Payment Gateway', 'bai-paga' );
-		$this->method_description = __( 'Pagamento por pix no PagSeguro', 'bai-paga' );
+		$this->method_description = __( 'Pagar as compras online apenas com o nº de telemóvel', 'bai-paga' );
 
-		$this->title        = $this->get_option( 'title', 'Pagamento por PIX' );
-		$this->description  = $this->get_option( 'description', 'Pague com pix' );
+		$this->title        = $this->get_option( 'title', 'Bai Paga Payment Gateway' );
+		$this->description  = $this->get_option( 'description', 'Pagar as compras online apenas com o nº de telemóvel' );
 		$this->instructions = $this->get_option(
 			'instructions',
 			$this->description
@@ -258,140 +258,20 @@ class WC_BaiPaga_Gateway extends WC_Payment_Gateway {
             
     );
 
-    $this->cert_pem_file = __DIR__ . '/' . get_option('p_p_a_certfile') . '.' . $this->environment . '.pem';
-    if(!file_exists($this->cert_pem_file)) {
-      file_put_contents($this->cert_pem_file, $this->cert_pem);
-    }
-
-    $this->cert_key_file = __DIR__ . '/' . get_option('p_p_a_certfile') . '.' . $this->environment . '.key';
-    if(!file_exists($this->cert_key_file) && $this->cert_key) {
-      file_put_contents($this->cert_key_file, $this->cert_key);
-    }
-
-    $tokens = get_option('pix_pagseguro_albreis');
+    $tokens = get_option('bai_paga');
     
-    if(!get_option('p_p_a_webhook_' . $this->environment) && $tokens && isset($tokens->access_token) && $tokens->access_token) {
-      $curl = curl_init();
-      curl_setopt_array($curl, array(
-        CURLOPT_URL => $this->environment == 'sandbox' ? 'https://secure.sandbox.api.pagseguro.com/instant-payments/webhook/' . $this->chave_pix : 'https://secure.api.pagseguro.com/instant-payments/webhook/' . $this->chave_pix,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'PUT',
-        CURLOPT_SSLKEY => $this->cert_key_file,
-        CURLOPT_SSLCERT => $this->cert_pem_file,
-        CURLOPT_POSTFIELDS =>'{
-          "webhookUrl": "' . get_site_url() . "/wc-api/" . get_option('p_p_a_webhook_key') . '"
-        }',
-        CURLOPT_HTTPHEADER => array(
-          "Authorization: Bearer {$tokens->access_token}",
-          'Content-Type: application/json',
-        ),
-      ));      
-      $response = curl_exec($curl); 
-      $curl = curl_init();
-      curl_setopt_array($curl, array(
-        CURLOPT_URL => $this->environment == 'sandbox' ? 'https://secure.sandbox.api.pagseguro.com/instant-payments/webhook/' . $this->chave_pix : 'https://secure.api.pagseguro.com/instant-payments/webhook/' . $this->chave_pix,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'GET',
-        CURLOPT_SSLKEY => $this->cert_key_file,
-        CURLOPT_SSLCERT => $this->cert_pem_file,
-        CURLOPT_POSTFIELDS =>'',
-        CURLOPT_HTTPHEADER => array(
-          "Authorization: Bearer {$tokens->access_token}",
-          'Content-Type: application/json',
-        ),
-      ));      
-      $response = curl_exec($curl);  
-      update_option('p_p_a_webhook_' . $this->environment, $response);
-    }
-
 		$this->form_fields = apply_filters(
-      'pix_pagseguro_albreis_card_pay_fields',
+      'bai_paga_card_pay_fields',
       $params
 		);
   }
-
-  function process_admin_options() {
-    parent::process_admin_options();
-    if(!isset($_POST['woocommerce_pix_pagseguro_albreis_environment'])) return;
-    if($_POST['woocommerce_pix_pagseguro_albreis_environment'] == 'production') {
-      $token = base64_encode("{$_POST['woocommerce_pix_pagseguro_albreis_client_id']}:{$_POST['woocommerce_pix_pagseguro_albreis_client_secret']}");
-      $curl = curl_init();
-      $body = json_encode(array(
-        "grant_type" => "client_credentials",
-        "scope" => "pix.read pix.write cob.read cob.write webhook.write webhook.read payloadlocation.write payloadlocation.read"
-      ));
-      curl_setopt_array($curl, array(
-        CURLOPT_URL => 'https://secure.api.pagseguro.com/pix/oauth2',
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HEADER => false,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_SSLKEY => $this->cert_key_file,
-        CURLOPT_SSLCERT => $this->cert_pem_file,
-        CURLINFO_HEADER_OUT => true,
-        CURLOPT_VERBOSE => true,
-        // CURLOPT_STDERR => fopen('./curl.log', 'w+'),
-        CURLOPT_POSTFIELDS => $body,
-        CURLOPT_HTTPHEADER => array(
-          "Authorization: Basic {$token}",
-          'Content-Type: application/json',
-        ),
-      ));
-      $response = curl_exec($curl);
-    }
-    else {
-      $token = base64_encode("{$_POST['woocommerce_pix_pagseguro_albreis_client_id_sandbox']}:{$_POST['woocommerce_pix_pagseguro_albreis_client_secret_sandbox']}");
-      $curl = curl_init();
-      $body = json_encode(array(
-        "grant_type" => "client_credentials",
-        "scope" => "pix.read pix.write cob.read cob.write webhook.write webhook.read payloadlocation.write payloadlocation.read"
-      ));
-      curl_setopt_array($curl, array(
-        CURLOPT_URL => 'https://secure.sandbox.api.pagseguro.com/pix/oauth2',
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HEADER => false,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_SSLKEY => $this->cert_key_file,
-        CURLOPT_SSLCERT => $this->cert_pem_file,
-        CURLINFO_HEADER_OUT => true,
-        CURLOPT_VERBOSE => true,
-        // CURLOPT_STDERR => fopen('./curl.log', 'w+'),
-        CURLOPT_POSTFIELDS => $body,
-        CURLOPT_HTTPHEADER => array(
-          "Authorization: Basic {$token}",
-          'Content-Type: application/json',
-        ),
-      ));
-      $response = curl_exec($curl);
-    }
-    update_option('pix_pagseguro_albreis', json_decode($response));
-  }
   
   function admin_options() { ?>
-    <h2><?php _e('Pix PagSeguro','woocommerce'); ?></h2>
+    <h2><?php _e('Bai Paga','woocommerce'); ?></h2>
     <div class="pix-pag" id="ppst_form">
       <div class="field">
         <label>Habilitar</label>
-        <input type="hidden" v-if="habilitar == 'yes'" value="yes" name="woocommerce_pix_pagseguro_albreis_enabled" />
+        <input type="hidden" v-if="habilitar == 'yes'" value="yes" name="woocommerce_bai_paga_enabled" />
         <select v-model="habilitar">
           <option value="yes">Sim</option>
           <option value="no">Não</option>
@@ -399,81 +279,81 @@ class WC_BaiPaga_Gateway extends WC_Payment_Gateway {
       </div>
       <div class="field">
         <label>Título</label>
-        <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_title" name="woocommerce_pix_pagseguro_albreis_title">
+        <input type="text" v-model="settings.woocommerce_bai_paga_title" name="woocommerce_bai_paga_title">
       </div>
       <div class="field">
         <label>Descrição</label>
-        <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_description" name="woocommerce_pix_pagseguro_albreis_description">
+        <input type="text" v-model="settings.woocommerce_bai_paga_description" name="woocommerce_bai_paga_description">
       </div>
       <div class="field">
         <label>Instruções Após o Pedido</label>
-        <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_instructions" name="woocommerce_pix_pagseguro_albreis_instructions">
+        <input type="text" v-model="settings.woocommerce_bai_paga_instructions" name="woocommerce_bai_paga_instructions">
       </div>
       <div class="field">
         <label>Ambiente</label>
-        <select v-model="settings.woocommerce_pix_pagseguro_albreis_environment" name="woocommerce_pix_pagseguro_albreis_environment">
+        <select v-model="settings.woocommerce_bai_paga_environment" name="woocommerce_bai_paga_environment">
           <option value="sandbox">Sandbox</option>
           <option value="production">Produção</option>
         </select>
       </div>
-      <div class="env" v-show="settings.woocommerce_pix_pagseguro_albreis_environment == 'production'">
+      <div class="env" v-show="settings.woocommerce_bai_paga_environment == 'production'">
         <div class="field">
           <label>Cliente ID</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_client_id" name="woocommerce_pix_pagseguro_albreis_client_id">
+          <input type="text" v-model="settings.woocommerce_bai_paga_client_id" name="woocommerce_bai_paga_client_id">
         </div>
         <div class="field">
           <label>Cliente Secret</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_client_secret" name="woocommerce_pix_pagseguro_albreis_client_secret">
+          <input type="text" v-model="settings.woocommerce_bai_paga_client_secret" name="woocommerce_bai_paga_client_secret">
         </div>
         <div class="field">
           <label>E-mail Vendedor</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_email_vendedor" name="woocommerce_pix_pagseguro_albreis_email_vendedor">
+          <input type="text" v-model="settings.woocommerce_bai_paga_email_vendedor" name="woocommerce_bai_paga_email_vendedor">
         </div>
         <div class="field">
           <label>Token Vendedor</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_token_vendedor" name="woocommerce_pix_pagseguro_albreis_token_vendedor">
+          <input type="text" v-model="settings.woocommerce_bai_paga_token_vendedor" name="woocommerce_bai_paga_token_vendedor">
         </div>
         <div class="field">
           <label>Chave PIX</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_chave_pix" name="woocommerce_pix_pagseguro_albreis_chave_pix">
+          <input type="text" v-model="settings.woocommerce_bai_paga_chave_pix" name="woocommerce_bai_paga_chave_pix">
         </div>
         <div class="field">
           <label>Cert PEM File</label>
-          <textarea type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_cert_pem" name="woocommerce_pix_pagseguro_albreis_cert_pem"></textarea>
+          <textarea type="text" v-model="settings.woocommerce_bai_paga_cert_pem" name="woocommerce_bai_paga_cert_pem"></textarea>
         </div>
         <div class="field">
           <label>Cert KEY File</label>
-          <textarea type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_cert_key" name="woocommerce_pix_pagseguro_albreis_cert_key"></textarea>
+          <textarea type="text" v-model="settings.woocommerce_bai_paga_cert_key" name="woocommerce_bai_paga_cert_key"></textarea>
         </div>
       </div>
-      <div class="env" v-show="settings.woocommerce_pix_pagseguro_albreis_environment == 'sandbox'">
+      <div class="env" v-show="settings.woocommerce_bai_paga_environment == 'sandbox'">
         <div class="field">
           <label>Cliente ID</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_client_id_sandbox" name="woocommerce_pix_pagseguro_albreis_client_id_sandbox">
+          <input type="text" v-model="settings.woocommerce_bai_paga_client_id_sandbox" name="woocommerce_bai_paga_client_id_sandbox">
         </div>
         <div class="field">
           <label>Cliente Secret</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_client_secret_sandbox" name="woocommerce_pix_pagseguro_albreis_client_secret_sandbox">
+          <input type="text" v-model="settings.woocommerce_bai_paga_client_secret_sandbox" name="woocommerce_bai_paga_client_secret_sandbox">
         </div>
         <div class="field">
           <label>E-mail Vendedor</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_email_vendedor_sandbox" name="woocommerce_pix_pagseguro_albreis_email_vendedor_sandbox">
+          <input type="text" v-model="settings.woocommerce_bai_paga_email_vendedor_sandbox" name="woocommerce_bai_paga_email_vendedor_sandbox">
         </div>
         <div class="field">
           <label>Token Vendedor</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_token_vendedor_sandbox" name="woocommerce_pix_pagseguro_albreis_token_vendedor_sandbox">
+          <input type="text" v-model="settings.woocommerce_bai_paga_token_vendedor_sandbox" name="woocommerce_bai_paga_token_vendedor_sandbox">
         </div>
         <div class="field">
           <label>Chave PIX</label>
-          <input type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_chave_pix_sandbox" name="woocommerce_pix_pagseguro_albreis_chave_pix_sandbox">
+          <input type="text" v-model="settings.woocommerce_bai_paga_chave_pix_sandbox" name="woocommerce_bai_paga_chave_pix_sandbox">
         </div>
         <div class="field">
           <label>Cert PEM File</label>
-          <textarea type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_cert_pem_sandbox" name="woocommerce_pix_pagseguro_albreis_cert_pem_sandbox"></textarea>
+          <textarea type="text" v-model="settings.woocommerce_bai_paga_cert_pem_sandbox" name="woocommerce_bai_paga_cert_pem_sandbox"></textarea>
         </div>
         <div class="field">
           <label>Cert KEY File</label>
-          <textarea type="text" v-model="settings.woocommerce_pix_pagseguro_albreis_cert_key_sandbox" name="woocommerce_pix_pagseguro_albreis_cert_key_sandbox"></textarea>
+          <textarea type="text" v-model="settings.woocommerce_bai_paga_cert_key_sandbox" name="woocommerce_bai_paga_cert_key_sandbox"></textarea>
         </div>
       </div>
       <div class="field" v-if="gerar_logs">
@@ -488,22 +368,22 @@ class WC_BaiPaga_Gateway extends WC_Payment_Gateway {
           data() {
             return {
               habilitar: 'no',
-              settings: <?php echo json_encode(array_combine(array_map(function($key){ return 'woocommerce_pix_pagseguro_albreis_'.$key; }, array_keys($this->settings)), $this->settings)); ?>
+              settings: <?php echo json_encode(array_combine(array_map(function($key){ return 'woocommerce_bai_paga_'.$key; }, array_keys($this->settings)), $this->settings)); ?>
             }
           },
           mounted() {
-            this.habilitar = this.settings.woocommerce_pix_pagseguro_albreis_enabled
+            this.habilitar = this.settings.woocommerce_bai_paga_enabled
           },
           computed: {
             gerar_logs() {
-              return  this.settings.woocommerce_pix_pagseguro_albreis_environment == 'sandbox' &&
-                    this.settings.woocommerce_pix_pagseguro_albreis_client_id_sandbox &&  
-                    this.settings.woocommerce_pix_pagseguro_albreis_client_secret_sandbox && 
-                    this.settings.woocommerce_pix_pagseguro_albreis_email_vendedor_sandbox && 
-                    this.settings.woocommerce_pix_pagseguro_albreis_token_vendedor_sandbox && 
-                    this.settings.woocommerce_pix_pagseguro_albreis_chave_pix_sandbox && 
-                    this.settings.woocommerce_pix_pagseguro_albreis_cert_pem_sandbox && 
-                    this.settings.woocommerce_pix_pagseguro_albreis_cert_key_sandbox
+              return  this.settings.woocommerce_bai_paga_environment == 'sandbox' &&
+                    this.settings.woocommerce_bai_paga_client_id_sandbox &&  
+                    this.settings.woocommerce_bai_paga_client_secret_sandbox && 
+                    this.settings.woocommerce_bai_paga_email_vendedor_sandbox && 
+                    this.settings.woocommerce_bai_paga_token_vendedor_sandbox && 
+                    this.settings.woocommerce_bai_paga_chave_pix_sandbox && 
+                    this.settings.woocommerce_bai_paga_cert_pem_sandbox && 
+                    this.settings.woocommerce_bai_paga_cert_key_sandbox
             }
           }
         })
@@ -537,71 +417,31 @@ class WC_BaiPaga_Gateway extends WC_Payment_Gateway {
 	public function process_payment( $order_id ) {
 		global $woocommerce;
 		$order = new WC_Order( $order_id );
-    $tokens = get_option('pix_pagseguro_albreis');
-    $curl = curl_init();
-    $txid = substr(preg_replace('/[^\d\w]+/', '', base64_encode(openssl_random_pseudo_bytes(60))), 0, 35);
-    $body = json_encode(array(
-      "calendario" => [
-        "expiracao" => "3600"
-      ],
-      "devedor" => [
-        "cpf" => preg_replace('/[^\d]+/', '', $order->get_meta('_billing_cpf')),
-        "nome" => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name()
-      ],
-      "valor" => [
-        "original" => $order->get_total()
-      ],
-      "solicitacaoPagador" => "Pagamento do pedido #" . $order->get_id(),
-      "chave" => $this->chave_pix,
-      "infoAdicionais" => [
-          [
-              "nome" => "ID do Pedido",
-              "valor" => $order->get_id()
-          ],
-          [
-              "nome" => "Vendedor",
-              "valor" => get_site_url()
-          ],
-          [
-              "nome" => "Data da Compra",
-              "valor" => date('d/m/Y H:i:s')
-          ],
-          [
-              "nome" => "IP do Comprador",
-              "valor" => $_SERVER['REMOTE_ADDR']
-          ]
-      ]
-    ));
-    curl_setopt_array($curl, array(
-      CURLOPT_URL => $this->environment == 'sandbox' ? "https://secure.sandbox.api.pagseguro.com/instant-payments/cob/{$txid}" : "https://secure.api.pagseguro.com/instant-payments/cob/{$txid}",
-      CURLOPT_RETURNTRANSFER => true,
-      CURLOPT_ENCODING => '',
-      CURLOPT_MAXREDIRS => 10,
-      CURLOPT_TIMEOUT => 0,
-      CURLOPT_FOLLOWLOCATION => true,
-      CURLOPT_HEADER => false,
-      CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-      CURLOPT_CUSTOMREQUEST => 'PUT',
-      CURLOPT_SSLKEY => $this->cert_key_file,
-      CURLOPT_SSLCERT => $this->cert_pem_file,
-      CURLINFO_HEADER_OUT => true,
-      CURLOPT_VERBOSE => true,
-      CURLOPT_POSTFIELDS => $body,
-      CURLOPT_HTTPHEADER => array(
-        "Authorization: Bearer {$tokens->access_token}",
-        'Content-Type: application/json',
-      ),
-    ));
-    $response = curl_exec($curl);
-    $cobranca = json_decode($response);
-    $order->update_meta_data('_ppst_cobranca', $response);
-    $order->update_meta_data('_ppst_txid', $txid);
+
+    $token = '12312';
+
+    $m = "<payment_id>|<nonce>|<externalReference>|<payment_amount>|<payment_currency>|<payment_lastChangeDate>|<payment_merchant.externalId>";
+
+    $signature = base64_encode(hash_hmac('sha256', $m, $token));
+
+    // $order->update_meta_data('_ppst_cobranca', $response);
+    // $order->update_meta_data('_ppst_txid', $txid);
     $order->update_status( 'pending', __( 'Aguardando autorização do pagamento', 'bai-paga' ) );  					
     return array(
-      'result'   => 'success',
+      'result'   => 'error',
+      'message'   => 'error',
       'redirect' => $this->get_return_url( $order ),
     );
 	}
+
+  public function payment_fields() {
+    woocommerce_form_field( 'phone', array(
+      'type'          => 'text',
+      'class'         => array('phone form-row-wide'),
+      'label'         => __('Telemóvel', 'bai-paga'),
+      'required'      => true
+    ), '' );
+  }
 
 	/**
 	 * Thankyou_page method.
